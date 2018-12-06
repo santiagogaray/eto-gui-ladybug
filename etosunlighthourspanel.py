@@ -486,44 +486,55 @@ class SunLightHoursEtoPanel(forms.Panel):
                 rs.LayerVisible(last_parentLayer, False)  
             results_layer = None
             
-            # generate multiple analysis baked in scene - one analysis per mesh
-            for index, mesh_item in enumerate(self.m_output_mesh): 
-                rs.EnableRedraw(False)
-                points_item = self.m_test_points[index]
-                vectors_item = self.m_pts_vectors[index]
-                LadybugEto.generateAnalysis(points_item,
-                                            vectors_item,
-                                            name,
-                                            window_groups,
-                                            sun_vectors,
-                                            hoys,
-                                            timestep,
-                                            hb_object_ids,
-                                            hb_object_types,
-                                            hb_object_mats,
-                                            folder,
-                                            filename,
-                                            save_file_only,
-                                            [mesh_item])
-                #consolidate multiple result objects into one layer (workaround to
-                #solve current ladybug_ResultVisualization.bakeObjects behaviour)
-                layer_index = sc.sticky['Eto_DisplayLayerIndex']
-                last_layer = Rhino.RhinoDoc.ActiveDoc.Layers.FindIndex(layer_index)
-                last_layer_name = rs.LayerName(last_layer.Id, True)
-                p_layer_name = rs.LayerName(last_layer.ParentLayerId, True)  
-                #use first analysis layers
-                if index == 0: 
-                    results_layer_index = layer_index
-                    results_layer = last_layer_name
-                    results_p_layer = p_layer_name
-                #delte all subsequent analysis layers
-                elif last_layer_name <> results_layer:
-                    #Move all objects to analysis layer and delete layers       
-                    objects_id = rs.ObjectsByLayer(last_layer_name)
-                    res = list(rs.ObjectLayer(obj_id, results_layer) for obj_id in objects_id)  
-                    rs.DeleteLayer(last_layer_name)
-                    rs.DeleteLayer(p_layer_name)
-                rs.EnableRedraw(True)
+            # generate one analysis merging points/vector and meshes
+            points_item = []
+            vectors_item = []
+            for index in range(len(self.m_test_points)):
+                points_item += self.m_test_points[index]
+                vectors_item += self.m_pts_vectors[index]
+            
+            mesh_item = self.m_output_mesh.pop(0)
+            if len(self.m_output_mesh):
+                mesh_item.Append(self.m_output_mesh) 
+            
+            rs.EnableRedraw(False)
+                
+            LadybugEto.generateAnalysis(points_item,
+                                        vectors_item,
+                                        name,
+                                        window_groups,
+                                        sun_vectors,
+                                        hoys,
+                                        timestep,
+                                        hb_object_ids,
+                                        hb_object_types,
+                                        hb_object_mats,
+                                        folder,
+                                        filename,
+                                        save_file_only,
+                                        [mesh_item])
+                                        
+            #consolidate multiple result objects into one layer (workaround to
+            #solve current ladybug_ResultVisualization.bakeObjects behaviour)
+            layer_index = sc.sticky['Eto_DisplayLayerIndex']
+            last_layer = Rhino.RhinoDoc.ActiveDoc.Layers.FindIndex(layer_index)
+            last_layer_name = rs.LayerName(last_layer.Id, True)
+            p_layer_name = rs.LayerName(last_layer.ParentLayerId, True)  
+            
+            #use first analysis layers
+            if index == 0: 
+                results_layer_index = layer_index
+                results_layer = last_layer_name
+                results_p_layer = p_layer_name
+            #delte all subsequent analysis layers
+            elif last_layer_name <> results_layer:
+                #Move all objects to analysis layer and delete layers       
+                objects_id = rs.ObjectsByLayer(last_layer_name)
+                res = list(rs.ObjectLayer(obj_id, results_layer) for obj_id in objects_id)  
+                rs.DeleteLayer(last_layer_name)
+                rs.DeleteLayer(p_layer_name)
+                
+            rs.EnableRedraw(True)
                 
             #replace the sticky to results layer used    
             sc.sticky['Eto_DisplayLayerIndex'] = results_layer_index    
